@@ -13,27 +13,33 @@ const io = new Server(server, {
   }
 });
 
+// Keep track of connected users
+const users = [];
+
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
-  // Send offer
+  // Add to list and tell this client who else is here
+  users.push(socket.id);
+  socket.emit("all-users", users.filter(id => id !== socket.id));
+
+  // When someone disconnects, remove them
+  socket.on("disconnect", () => {
+    const idx = users.indexOf(socket.id);
+    if (idx !== -1) users.splice(idx, 1);
+  });
+
+  // Offer / Answer / ICE as before:
   socket.on("send-offer", ({ offer, to }) => {
     io.to(to).emit("receive-offer", { offer, from: socket.id });
   });
 
-  // Send answer
   socket.on("send-answer", ({ answer, to }) => {
     io.to(to).emit("receive-answer", { answer, from: socket.id });
   });
 
-  // ICE candidate exchange
   socket.on("send-ice-candidate", ({ candidate, to }) => {
     io.to(to).emit("receive-ice-candidate", { candidate, from: socket.id });
-  });
-
-  // Join room
-  socket.on("join", () => {
-    socket.broadcast.emit("user-joined", socket.id);
   });
 });
 
